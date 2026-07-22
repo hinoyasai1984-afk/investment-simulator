@@ -3,6 +3,13 @@
 <meta charset="utf-8">
 <title>積立投資シミュレーター</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#2a78d6">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="投資シミュ">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
   .viz-root {
     color-scheme: light;
@@ -841,5 +848,9 @@ document.getElementById('in-birth-month').addEventListener('change', render);
 withdrawModeSelect.addEventListener('change', render);
 updateWithdrawModeFields();
 render();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+}
 </script>
 </html>

@@ -488,7 +488,39 @@ function updateWithdrawModeFields() {
   fieldWithdrawFixed.hidden = mode !== 'fixed';
 }
 
+const STORAGE_KEY = 'investmentSimulator:inputs:v1';
+const PERSIST_IDS = [
+  'in-current-age', 'in-birth-month', 'in-initial', 'in-months', 'in-contribution', 'in-rate',
+  'in-defer-months', 'in-defer-rate', 'in-withdraw-months', 'in-withdraw-invest-rate',
+  'in-withdraw-mode', 'in-withdraw-rate', 'in-withdraw-fixed',
+];
+
+function loadInputs() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    PERSIST_IDS.forEach((id) => {
+      if (data[id] === undefined) return;
+      const el = document.getElementById(id);
+      if (el) el.value = data[id];
+    });
+  } catch (e) { /* localStorage unavailable or saved data corrupt: fall back to defaults */ }
+}
+
+function saveInputs() {
+  try {
+    const data = {};
+    PERSIST_IDS.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) data[id] = el.value;
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (e) { /* private browsing / quota exceeded: silently skip persistence */ }
+}
+
 function render() {
+  saveInputs();
   const currentAge = Math.min(110, Math.max(0, Math.round(Number(document.getElementById('in-current-age').value) || 0)));
   const birthMonth = Math.min(12, Math.max(1, Math.round(Number(document.getElementById('in-birth-month').value) || 1)));
   const now = new Date();
@@ -846,6 +878,7 @@ function drawChart(accFull, accPts, deferFull, deferPts, withdrawFull, withdrawP
 });
 document.getElementById('in-birth-month').addEventListener('change', render);
 withdrawModeSelect.addEventListener('change', render);
+loadInputs();
 updateWithdrawModeFields();
 render();
 

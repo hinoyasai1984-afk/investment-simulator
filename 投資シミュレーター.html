@@ -61,6 +61,16 @@
   body { margin: 0; background: var(--page); }
   .viz-root { background: var(--page); padding: 20px 16px 44px; }
 
+  .back-link {
+    display: block;
+    max-width: 1180px;
+    margin: 0 auto 12px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+  .back-link:hover { color: var(--text-primary); text-decoration: underline; }
+
   .card {
     max-width: 1180px;
     margin: 0 auto 18px;
@@ -171,6 +181,7 @@
 </style>
 
 <div class="viz-root">
+  <a class="back-link" href="https://hinoyasai1984-afk.github.io/">← アプリ一覧に戻る</a>
   <div class="card">
     <h1>積立投資シミュレーター</h1>
     <p class="subtitle">初期費用・積立期間・毎月の積立額・想定利回りから、将来の資産形成額を試算します。</p>

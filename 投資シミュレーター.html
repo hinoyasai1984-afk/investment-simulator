@@ -61,15 +61,33 @@
   body { margin: 0; background: var(--page); }
   .viz-root { background: var(--page); padding: 20px 16px 44px; }
 
-  .back-link {
-    display: block;
+  .top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
     max-width: 1180px;
     margin: 0 auto 12px;
+  }
+  .back-link {
+    display: block;
     font-size: 12.5px;
     color: var(--text-muted);
     text-decoration: none;
   }
   .back-link:hover { color: var(--text-primary); text-decoration: underline; }
+  .share-link-btn {
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--text-muted);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 5px 10px;
+    cursor: pointer;
+    flex: none;
+  }
+  .share-link-btn:hover { color: var(--text-primary); border-color: var(--series-1); }
 
   .card {
     max-width: 1180px;
@@ -220,7 +238,10 @@
 </style>
 
 <div class="viz-root">
-  <a class="back-link" href="https://hinoyasai1984-afk.github.io/">← アプリ一覧に戻る</a>
+  <div class="top-row">
+    <a class="back-link" href="https://hinoyasai1984-afk.github.io/">← アプリ一覧に戻る</a>
+    <button type="button" id="share-link" class="share-link-btn">🔗 リンクをコピー</button>
+  </div>
   <div class="card">
     <h1>積立投資シミュレーター</h1>
     <p class="subtitle">初期費用・積立期間・毎月の積立額・想定利回りから、将来の資産形成額を試算します。</p>
@@ -1030,6 +1051,31 @@ function drawChart(accFull, accPts, deferFull, deferPts, withdrawFull, withdrawP
 document.getElementById('in-birth-month').addEventListener('change', render);
 withdrawModeSelect.addEventListener('change', render);
 document.getElementById('saveScenarioBtn').addEventListener('click', saveScenario);
+document.getElementById('share-link').addEventListener('click', (e) => {
+  const btn = e.currentTarget;
+  const url = window.location.href;
+  const onDone = () => {
+    const original = btn.textContent;
+    btn.textContent = '✓ コピーしました';
+    setTimeout(() => { btn.textContent = original; }, 1600);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(onDone).catch(() => fallbackCopyLink(url, onDone));
+  } else {
+    fallbackCopyLink(url, onDone);
+  }
+});
+function fallbackCopyLink(text, onDone) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch (e) { /* clipboard unavailable */ }
+  document.body.removeChild(ta);
+  onDone();
+}
 loadInputs();
 updateWithdrawModeFields();
 render();

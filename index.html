@@ -178,6 +178,45 @@
   table.data-table th, table.data-table td { border-bottom: 1px solid var(--border); padding: 4px 8px; text-align: right; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
   table.data-table th:first-child, table.data-table td:first-child { text-align: left; }
   table.data-table th { color: var(--text-muted); font-weight: 500; }
+
+  /* ---- scenario save/list ---- */
+  .scenario-save-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+  .btn-save-scenario {
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--surface-1);
+    background: var(--series-1);
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    cursor: pointer;
+  }
+  .btn-save-scenario:hover { opacity: 0.88; }
+  .scenario-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .scenario-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--page);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .scenario-link { font-size: 13.5px; color: var(--series-1); text-decoration: none; font-weight: 600; flex: 1; background: none; border: none; text-align: left; padding: 0; font-family: inherit; cursor: pointer; }
+  .scenario-link:hover { text-decoration: underline; }
+  .scenario-date { font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .scenario-delete {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-family: inherit;
+    flex: none;
+  }
+  .scenario-delete:hover { color: var(--series-2); border-color: var(--series-2); }
 </style>
 
 <div class="viz-root">
@@ -298,6 +337,10 @@
       </div>
     </div>
     <p class="note">※ 本ツールは概算のシミュレーションです。実際の運用成果を保証するものではありません。利回りは年率を月複利(1ヶ月あたり (1+年利)^(1/12)-1)換算して計算しています。積立期間・据置期間・取り崩し期間はそれぞれ別の想定年利を設定できます(各期間中は一定として試算します)。全額均等取り崩しは入力した取り崩し期間でちょうど使い切る額を毎月取り崩します。定率取り崩しは毎月の残高に対して一定率を、定額取り崩しは毎月一定額を取り崩し、資産が尽きた場合はそこで残高0円として表示します。</p>
+    <div class="scenario-save-row">
+      <button type="button" id="saveScenarioBtn" class="btn-save-scenario">💾 現在の条件をシナリオとして保存</button>
+      <span class="hint">最大5件まで保存できます。5件を超えると最も古いものが自動的に削除されます</span>
+    </div>
   </div>
 
   <div class="card">
@@ -340,6 +383,12 @@
       <summary>取り崩し明細を表で表示</summary>
       <div id="withdrawTableHolder"></div>
     </details>
+  </div>
+
+  <div class="card">
+    <h2>保存したシナリオ</h2>
+    <p class="subtitle">最大5件まで保存できます。名前をクリックすると、その時点の条件を呼び出して再計算します</p>
+    <div id="scenarioListHolder"></div>
   </div>
 </div>
 
@@ -528,6 +577,97 @@ function saveInputs() {
     });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch (e) { /* private browsing / quota exceeded: silently skip persistence */ }
+}
+
+const SCENARIO_KEY = 'investmentSimulator:scenarios:v1';
+const MAX_SCENARIOS = 5;
+
+function loadScenarios() {
+  try {
+    const raw = localStorage.getItem(SCENARIO_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
+}
+
+function persistScenarios(list) {
+  try { localStorage.setItem(SCENARIO_KEY, JSON.stringify(list)); } catch (e) { /* private browsing / quota exceeded: silently skip persistence */ }
+}
+
+function currentInputsSnapshot() {
+  const data = {};
+  PERSIST_IDS.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) data[id] = el.value;
+  });
+  return data;
+}
+
+function saveScenario() {
+  const name = window.prompt('シナリオ名を入力してください', '');
+  if (name === null) return;
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  const list = loadScenarios();
+  list.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    name: trimmed,
+    savedAt: Date.now(),
+    inputs: currentInputsSnapshot(),
+  });
+  list.sort((a, b) => a.savedAt - b.savedAt);
+  while (list.length > MAX_SCENARIOS) list.shift();
+  persistScenarios(list);
+  renderScenarioList();
+}
+
+function applyScenario(id) {
+  const found = loadScenarios().find((s) => s.id === id);
+  if (!found) return;
+  PERSIST_IDS.forEach((pid) => {
+    if (found.inputs[pid] === undefined) return;
+    const el = document.getElementById(pid);
+    if (el) el.value = found.inputs[pid];
+  });
+  updateWithdrawModeFields();
+  render();
+  document.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
+}
+
+function deleteScenario(id) {
+  const list = loadScenarios().filter((s) => s.id !== id);
+  persistScenarios(list);
+  renderScenarioList();
+}
+
+function formatSavedAt(ts) {
+  const d = new Date(ts);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function renderScenarioList() {
+  const holder = document.getElementById('scenarioListHolder');
+  const list = loadScenarios().slice().sort((a, b) => b.savedAt - a.savedAt);
+  holder.innerHTML = '';
+  if (list.length === 0) {
+    holder.appendChild(htmlEl('p', { class: 'note' }, '保存されたシナリオはまだありません。'));
+    return;
+  }
+  const ul = htmlEl('ul', { class: 'scenario-list' });
+  list.forEach((s) => {
+    const li = htmlEl('li', { class: 'scenario-item' });
+    const link = htmlEl('button', { type: 'button', class: 'scenario-link' }, s.name);
+    link.addEventListener('click', () => applyScenario(s.id));
+    li.appendChild(link);
+    li.appendChild(htmlEl('span', { class: 'scenario-date' }, formatSavedAt(s.savedAt)));
+    const delBtn = htmlEl('button', { type: 'button', class: 'scenario-delete' }, '削除');
+    delBtn.addEventListener('click', () => {
+      if (window.confirm(`「${s.name}」を削除しますか？`)) deleteScenario(s.id);
+    });
+    li.appendChild(delBtn);
+    ul.appendChild(li);
+  });
+  holder.appendChild(ul);
 }
 
 function render() {
@@ -889,9 +1029,11 @@ function drawChart(accFull, accPts, deferFull, deferPts, withdrawFull, withdrawP
 });
 document.getElementById('in-birth-month').addEventListener('change', render);
 withdrawModeSelect.addEventListener('change', render);
+document.getElementById('saveScenarioBtn').addEventListener('click', saveScenario);
 loadInputs();
 updateWithdrawModeFields();
 render();
+renderScenarioList();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
